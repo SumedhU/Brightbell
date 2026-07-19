@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>921219255144-c86tuoor9392dejvkv7jqeuc9mqv5ror.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.921219255144-c86tuoor9392dejvkv7jqeuc9mqv5ror</string>
+	<key>API_KEY</key>
+	<string>AIzaSyAXEyWcrKyfIbVPGqXbt3P9AoVfwknFrOg</string>
+	<key>GCM_SENDER_ID</key>
+	<string>921219255144</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.example.brightbell</string>
+	<key>PROJECT_ID</key>
+	<string>brightbell-app</string>
+	<key>STORAGE_BUCKET</key>
+	<string>brightbell-app.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:921219255144:ios:4a6dfeb027f317c54224dd</string>
+</dict>
+</plist>

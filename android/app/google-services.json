@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "921219255144",
+    "project_id": "brightbell-app",
+    "storage_bucket": "brightbell-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:921219255144:android:4aadbd5c5189d4314224dd",
+        "android_client_info": {
+          "package_name": "com.example.brightbell"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyChlJw4NGYC2h_ttWa4CzvO-tZmvt63JCI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
