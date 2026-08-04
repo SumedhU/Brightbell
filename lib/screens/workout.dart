@@ -10,6 +10,9 @@ import 'dart:convert';
 import 'package:brightbell/models/exercise.dart' as models;
 import 'package:brightbell/models/workout.dart' as workout_model;
 import 'package:brightbell/components/exercise_card.dart';
+import 'package:brightbell/screens/streak_info.dart';
+import 'package:brightbell/utils/streak_utils.dart';
+import 'package:brightbell/utils/user_utils.dart';
 
 import 'package:brightbell/screens/analytics/analytics.dart';
 
@@ -265,113 +268,19 @@ class _WorkoutState extends State<Workout> {
   }
 
   Future<void> _loadStreak() async {
-    final prefs = await SharedPreferences.getInstance();
-    int savedStreak = prefs.getInt('streak') ?? 0;
+    final goalDays = await UserUtils.getGoalDays();
 
-    final savedDays = prefs.getStringList('goal_days');
-    List<int> goalDays = savedDays != null
-        ? savedDays.map((e) => int.parse(e)).toList()
-        : [1, 2, 3, 4, 5, 6, 7];
+    final workouts = await WorkoutUtils.getAllWorkouts();
+    final timeline = StreakUtils.calculateTimeline(workouts, goalDays);
+    final currentStreak = StreakUtils.getCurrentStreak(timeline);
 
-    String? lastUpdatedStr = prefs.getString('last_updated');
-    if (lastUpdatedStr != null) {
-      DateTime lastUpdated = DateTime.parse(lastUpdatedStr);
-      DateTime now = DateTime.now();
-      DateTime lastDate = DateTime(
-        lastUpdated.year,
-        lastUpdated.month,
-        lastUpdated.day,
-      );
-      DateTime today = DateTime(now.year, now.month, now.day);
-
-      DateTime lastDateUtc = DateTime.utc(
-        lastDate.year,
-        lastDate.month,
-        lastDate.day,
-      );
-      DateTime todayUtc = DateTime.utc(today.year, today.month, today.day);
-
-      int diff = todayUtc.difference(lastDateUtc).inDays;
-      if (diff > 1) {
-        bool streakBroken = false;
-        for (int i = 1; i < diff; i++) {
-          DateTime missedDate = lastDateUtc.add(Duration(days: i));
-          if (goalDays.contains(missedDate.weekday)) {
-            streakBroken = true;
-            break;
-          }
-        }
-        if (streakBroken) {
-          savedStreak = 0;
-          await prefs.setInt('streak', 0);
-        }
-      }
-    }
     setState(() {
-      _streak = savedStreak;
+      _streak = currentStreak;
     });
   }
 
   Future<void> _updateStreak() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? lastUpdatedStr = prefs.getString('last_updated');
-    DateTime now = DateTime.now();
-    DateTime today = DateTime(now.year, now.month, now.day);
-
-    final savedDays = prefs.getStringList('goal_days');
-    List<int> goalDays = savedDays != null
-        ? savedDays.map((e) => int.parse(e)).toList()
-        : [1, 2, 3, 4, 5, 6, 7];
-
-    int newStreak = _streak;
-
-    if (lastUpdatedStr != null) {
-      DateTime lastUpdated = DateTime.parse(lastUpdatedStr);
-      DateTime lastDate = DateTime(
-        lastUpdated.year,
-        lastUpdated.month,
-        lastUpdated.day,
-      );
-
-      DateTime lastDateUtc = DateTime.utc(
-        lastDate.year,
-        lastDate.month,
-        lastDate.day,
-      );
-      DateTime todayUtc = DateTime.utc(today.year, today.month, today.day);
-
-      int diff = todayUtc.difference(lastDateUtc).inDays;
-      if (diff == 0) {
-        // Already updated today, do nothing
-        return;
-      } else if (diff == 1) {
-        // Updated yesterday, increment
-        newStreak++;
-      } else {
-        bool streakBroken = false;
-        for (int i = 1; i < diff; i++) {
-          DateTime missedDate = lastDateUtc.add(Duration(days: i));
-          if (goalDays.contains(missedDate.weekday)) {
-            streakBroken = true;
-            break;
-          }
-        }
-        if (streakBroken) {
-          newStreak = 1; // broken, start over
-        } else {
-          newStreak++; // continued!
-        }
-      }
-    } else {
-      // First time
-      newStreak = 1;
-    }
-
-    await prefs.setInt('streak', newStreak);
-    await prefs.setString('last_updated', now.toIso8601String());
-    setState(() {
-      _streak = newStreak;
-    });
+    await _loadStreak();
   }
 
   Future<void> _showAddSetsBottomSheet(
@@ -657,20 +566,28 @@ class _WorkoutState extends State<Workout> {
           ),
         ),
         actions: [
-          _buildDynamicIsland(
-            child: Row(
-              children: [
-                const Text('🔥', style: TextStyle(fontSize: 16)),
-                const SizedBox(width: 6),
-                Text(
-                  '$_streak',
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const StreakInfoScreen()),
+              );
+            },
+            child: _buildDynamicIsland(
+              child: Row(
+                children: [
+                  const Text('🔥', style: TextStyle(fontSize: 16)),
+                  const SizedBox(width: 6),
+                  Text(
+                    '$_streak',
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           const SizedBox(width: 8),

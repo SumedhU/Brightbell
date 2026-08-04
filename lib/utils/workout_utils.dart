@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:brightbell/models/workout.dart';
 import 'package:brightbell/utils/auth_utils.dart';
+import 'package:brightbell/utils/user_utils.dart';
+import 'package:brightbell/utils/streak_utils.dart';
 
 class WorkoutUtils {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -63,8 +65,23 @@ class WorkoutUtils {
     final user = AuthUtils.currentUser;
     if (user == null) return workout.docId;
 
+    int? currentStreak = workout.currentStreakCount;
+    if (workout.docId == null && currentStreak == null) {
+      try {
+        DateTime parsedDate = DateTime.parse(workout.date);
+        final previousWorkouts = await getAllWorkouts();
+        final goalDays = await UserUtils.getGoalDays();
+        currentStreak = StreakUtils.calculateNextStreak(previousWorkouts, parsedDate, goalDays);
+      } catch (e) {
+        currentStreak = 1;
+      }
+    }
+
     // Ensure the workout has the correct userId before saving
     final dataToSave = workout.toMap();
+    if (currentStreak != null) {
+      dataToSave['currentStreakCount'] = currentStreak;
+    }
     dataToSave['userId'] = user.uid; 
 
     if (workout.docId != null) {

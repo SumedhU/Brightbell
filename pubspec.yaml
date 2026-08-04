@@ -44,6 +44,7 @@ dependencies:
   fl_chart: ^0.68.0
   flutter_dotenv: ^6.0.1
   table_calendar: ^3.2.0
+  easy_stepper: ^1.2.0
 
 dev_dependencies:
   flutter_test:

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:brightbell/utils/user_utils.dart';
 
 class GoalsScreen extends StatefulWidget {
   const GoalsScreen({super.key});
@@ -20,26 +20,15 @@ class _GoalsScreenState extends State<GoalsScreen> {
   }
 
   Future<void> _loadGoals() async {
-    final prefs = await SharedPreferences.getInstance();
-    // Default to all days selected if not set before
-    final savedDays = prefs.getStringList('goal_days');
-    if (savedDays != null) {
-      setState(() {
-        _selectedDays.addAll(savedDays.map((e) => int.parse(e)));
-        _isLoading = false;
-      });
-    } else {
-      setState(() {
-        _selectedDays.addAll([1, 2, 3, 4, 5, 6, 7]);
-        _isLoading = false;
-      });
-    }
+    final goalDays = await UserUtils.getGoalDays();
+    setState(() {
+      _selectedDays.addAll(goalDays);
+      _isLoading = false;
+    });
   }
 
   Future<void> _saveGoals() async {
-    final prefs = await SharedPreferences.getInstance();
-    final stringList = _selectedDays.map((e) => e.toString()).toList();
-    await prefs.setStringList('goal_days', stringList);
+    await UserUtils.saveGoalDays(_selectedDays);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Goals saved successfully')),
