@@ -32,6 +32,7 @@ class Set {
   double weight;
   bool isWarmUp;
   bool isDropSet;
+  bool isFailure;
 
   Set({
     required this.id,
@@ -39,6 +40,7 @@ class Set {
     required this.weight,
     required this.isWarmUp,
     required this.isDropSet,
+    this.isFailure = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -48,6 +50,7 @@ class Set {
       'weight': weight,
       'isWarmUp': isWarmUp,
       'isDropSet': isDropSet,
+      'isFailure': isFailure,
     };
   }
 
@@ -58,11 +61,12 @@ class Set {
       weight: map['weight']?.toDouble() ?? 0.0,
       isWarmUp: map['isWarmUp'] ?? false,
       isDropSet: map['isDropSet'] ?? false,
+      isFailure: map['isFailure'] ?? false,
     );
   }
 
   String toText() {
-    String typeStr = isWarmUp ? '(W)' : isDropSet ? '(D)' : '';
+    String typeStr = isWarmUp ? '(W)' : isDropSet ? '(D)' : isFailure ? '(F)' : '';
     // Format weight without trailing .0 if it's an integer
     String weightStr = weight == weight.roundToDouble()
         ? weight.toInt().toString()

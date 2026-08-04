@@ -13,12 +13,48 @@ class WorkoutUtils {
         .collection('Workouts')
         .where('userId', isEqualTo: user.uid)
         .where('date', isEqualTo: dateStr)
-        .limit(1)
         .get();
 
     if (snapshot.docs.isNotEmpty) {
-      final doc = snapshot.docs.first;
-      return Workout.fromMap(doc.data(), docId: doc.id);
+      if (snapshot.docs.length == 1) {
+        final doc = snapshot.docs.first;
+        return Workout.fromMap(doc.data(), docId: doc.id);
+      } else {
+        // Merge multiple documents to prevent data loss from offline duplicate creation
+        List<dynamic> allExercises = [];
+        String allText = '';
+        String primaryDocId = snapshot.docs.first.id;
+        
+        for (var doc in snapshot.docs) {
+          final workout = Workout.fromMap(doc.data(), docId: doc.id);
+          allExercises.addAll(workout.exercises);
+          if (allText.isNotEmpty && workout.rawText.isNotEmpty) {
+            allText += '\n';
+          }
+          allText += workout.rawText;
+        }
+
+        // Clean up duplicates and save merged data (fire and forget)
+        try {
+          for (int i = 1; i < snapshot.docs.length; i++) {
+            _firestore.collection('Workouts').doc(snapshot.docs[i].id).delete();
+          }
+          _firestore.collection('Workouts').doc(primaryDocId).update({
+            'exercises': allExercises.map((e) => e.toMap()).toList(),
+            'rawText': allText,
+          });
+        } catch (e) {
+          // Ignore background cleanup errors
+        }
+        
+        return Workout(
+          docId: primaryDocId,
+          date: dateStr,
+          userId: user.uid,
+          rawText: allText,
+          exercises: allExercises.cast(),
+        );
+      }
     }
     return null;
   }
@@ -35,9 +71,28 @@ class WorkoutUtils {
       await _firestore.collection('Workouts').doc(workout.docId).update(dataToSave);
       return workout.docId;
     } else {
-      final docRef = await _firestore.collection('Workouts').add(dataToSave);
-      return docRef.id;
+      // Use deterministic document ID based on user and date
+      final docId = '${user.uid}_${workout.date}';
+      
+      // Use set with merge: true to avoid overwriting existing data if it wasn't loaded properly
+      await _firestore.collection('Workouts').doc(docId).set(dataToSave, SetOptions(merge: true));
+      return docId;
     }
+  }
+
+  static Future<List<Workout>> getAllWorkouts() async {
+    final user = AuthUtils.currentUser;
+    if (user == null) return [];
+
+    final snapshot = await _firestore
+        .collection('Workouts')
+        .where('userId', isEqualTo: user.uid)
+        .orderBy('date', descending: true)
+        .get();
+
+    return snapshot.docs
+        .map((doc) => Workout.fromMap(doc.data(), docId: doc.id))
+        .toList();
   }
 
   static Future<List<DateTime>> getAllWorkoutDates() async {

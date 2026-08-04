@@ -5,17 +5,25 @@ import 'package:flutter/material.dart';
 import 'package:brightbell/screens/workout.dart';
 import 'package:brightbell/screens/auth/signin.dart';
 
-void main() async{
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } on FirebaseException catch (e) {
+    if (e.code != 'duplicate-app') {
+      rethrow;
+    }
+  } catch (e) {
+    print('Firebase init error: $e');
+  }
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-  
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -28,7 +36,9 @@ class MyApp extends StatelessWidget {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Scaffold(
-              body: Center(child: CircularProgressIndicator(color: Colors.amber)),
+              body: Center(
+                child: CircularProgressIndicator(color: Colors.amber),
+              ),
             );
           }
           if (snapshot.hasData && snapshot.data != null) {

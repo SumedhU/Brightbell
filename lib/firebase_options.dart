@@ -3,7 +3,6 @@
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Default [FirebaseOptions] for use with your Firebase apps.
 ///
@@ -25,15 +24,15 @@ class DefaultFirebaseOptions {
         return android;
       case TargetPlatform.iOS:
         return ios;
-      case TargetPlatform.macOS:
-        return macos;
-      case TargetPlatform.windows:
-        return windows;
-      case TargetPlatform.linux:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for linux - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+      // case TargetPlatform.macOS:
+      //   return macos;
+      // case TargetPlatform.windows:
+      //   return windows;
+      // case TargetPlatform.linux:
+      //   throw UnsupportedError(
+      //     'DefaultFirebaseOptions have not been configured for linux - '
+      //     'you can reconfigure this by running the FlutterFire CLI again.',
+      //   );
       default:
         throw UnsupportedError(
           'DefaultFirebaseOptions are not supported for this platform.',
@@ -41,47 +40,47 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static final FirebaseOptions web = FirebaseOptions(
-    apiKey: DotEnv().env['apiKey']!,
-    appId: DotEnv().env['appId']!,
-    messagingSenderId: DotEnv().env['messagingSenderId']!,
-    projectId: DotEnv().env['projectId']!,
-    authDomain: DotEnv().env['authDomain']!,
-    storageBucket: DotEnv().env['storageBucket']!,
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyAfQJwtkeiWOwphkdEWtjPsX6hLQmVKZqY',
+    appId: '1:921219255144:web:9af1c1fd729cbe184224dd',
+    messagingSenderId: '921219255144',
+    projectId: 'brightbell-app',
+    authDomain: 'brightbell-app.firebaseapp.com',
+    storageBucket: 'brightbell-app.firebasestorage.app',
   );
 
-  static final FirebaseOptions android = FirebaseOptions(
-    apiKey: DotEnv().env['apiKey']!,
-    appId: DotEnv().env['appId']!,
-    messagingSenderId: DotEnv().env['messagingSenderId']!,
-    projectId: DotEnv().env['projectId']!,
-    storageBucket: DotEnv().env['storageBucket']!,
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyAfQJwtkeiWOwphkdEWtjPsX6hLQmVKZqY',
+    appId: '1:921219255144:web:9af1c1fd729cbe184224dd',
+    messagingSenderId: '921219255144',
+    projectId: 'brightbell-app',
+    storageBucket: 'brightbell-app.firebasestorage.app',
   );
 
-  static final FirebaseOptions ios = FirebaseOptions(
-    apiKey: DotEnv().env['apiKey']!,
-    appId: DotEnv().env['appId']!,
-    messagingSenderId: DotEnv().env['messagingSenderId']!,
-    projectId: DotEnv().env['projectId']!,
-    storageBucket: DotEnv().env['storageBucket']!,
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyAfQJwtkeiWOwphkdEWtjPsX6hLQmVKZqY',
+    appId: '1:921219255144:web:9af1c1fd729cbe184224dd',
+    messagingSenderId: '921219255144',
+    projectId: 'brightbell-app',
+    storageBucket: 'brightbell-app.firebasestorage.app',
     iosBundleId: 'com.example.brightbell',
   );
 
-  static final FirebaseOptions macos = FirebaseOptions(
-    apiKey: DotEnv().env['apiKey']!,
-    appId: DotEnv().env['appId']!,
-    messagingSenderId: DotEnv().env['messagingSenderId']!,
-    projectId: DotEnv().env['projectId']!,
-    storageBucket: DotEnv().env['storageBucket']!,
-    iosBundleId: 'com.example.brightbell',
-  );
+  // static const FirebaseOptions macos = FirebaseOptions(
+  //   apiKey: 'AIzaSyAfQJwtkeiWOwphkdEWtjPsX6hLQmVKZqY',
+  //   appId: '1:921219255144:web:9af1c1fd729cbe184224dd',
+  //   messagingSenderId: '921219255144',
+  //   projectId: 'brightbell-app',
+  //   storageBucket: 'brightbell-app.firebasestorage.app',
+  //   iosBundleId: 'com.example.brightbell',
+  // );
 
-  static final FirebaseOptions windows = FirebaseOptions(
-    apiKey: DotEnv().env['apiKey']!,
-    appId: DotEnv().env['appId']!,
-    messagingSenderId: DotEnv().env['messagingSenderId']!,
-    projectId: DotEnv().env['projectId']!,
-    authDomain: DotEnv().env['authDomain']!,
-    storageBucket: DotEnv().env['storageBucket']!,
-  );
+  // static const FirebaseOptions windows = FirebaseOptions(
+  //   apiKey: 'AIzaSyAfQJwtkeiWOwphkdEWtjPsX6hLQmVKZqY',
+  //   appId: '1:921219255144:web:9af1c1fd729cbe184224dd',
+  //   messagingSenderId: '921219255144',
+  //   projectId: 'brightbell-app',
+  //   authDomain: 'brightbell-app.firebaseapp.com',
+  //   storageBucket: 'brightbell-app.firebasestorage.app',
+  // );
 }

@@ -5,6 +5,7 @@ class Workout {
   final String date;
   final String userId;
   final String rawText;
+  final String title;
   final List<Exercise> exercises;
 
   Workout({
@@ -12,6 +13,7 @@ class Workout {
     required this.date,
     required this.userId,
     required this.rawText,
+    this.title = 'New Workout',
     required this.exercises,
   });
 
@@ -21,6 +23,7 @@ class Workout {
       date: map['date'] ?? '',
       userId: map['userId'] ?? '',
       rawText: map['rawText'] ?? '',
+      title: map['title'] ?? 'New Workout',
       exercises: List<Exercise>.from(
         (map['exercises'] ?? []).map((x) => Exercise.fromMap(x)),
       ),
@@ -32,6 +35,7 @@ class Workout {
       'date': date,
       'userId': userId,
       'rawText': rawText,
+      'title': title,
       'exercises': exercises.map((x) => x.toMap()).toList(),
     };
   }
