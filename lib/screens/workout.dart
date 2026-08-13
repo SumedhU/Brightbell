@@ -2,7 +2,6 @@ import 'package:brightbell/screens/settings.dart';
 import 'package:brightbell/screens/workout_list.dart';
 import 'package:flutter/material.dart';
 import 'package:brightbell/components/add_sets.dart';
-import 'package:flutter_expandable_fab/flutter_expandable_fab.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:brightbell/utils/workout_utils.dart';
 import 'dart:async';
@@ -14,7 +13,6 @@ import 'package:brightbell/screens/streak_info.dart';
 import 'package:brightbell/utils/streak_utils.dart';
 import 'package:brightbell/utils/user_utils.dart';
 
-import 'package:brightbell/screens/analytics/analytics.dart';
 
 class Workout extends StatefulWidget {
   const Workout({super.key});
@@ -30,10 +28,10 @@ class _WorkoutState extends State<Workout> {
   late DateTime _currentDate;
   int _streak = 0;
   Timer? _debounceTimer;
-  bool _isLoading = false;
+
   String? _currentDocId;
   Map<String, Map<String, String>> _pastExercises = {};
-  Map<String, Timer> _historyTimers = {};
+  final Map<String, Timer> _historyTimers = {};
   final ScrollController _scrollController = ScrollController();
   int _currentPageIndex = 10000;
   List<models.Exercise> _exercises = [];
@@ -67,7 +65,6 @@ class _WorkoutState extends State<Workout> {
 
   Future<void> _loadWorkoutForDate() async {
     setState(() {
-      _isLoading = true;
       _currentDocId = null;
       _exercises = [];
     });
@@ -130,12 +127,6 @@ class _WorkoutState extends State<Workout> {
             ),
           ),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
       }
     }
   }
@@ -233,7 +224,7 @@ class _WorkoutState extends State<Workout> {
               weight: weight,
               isWarmUp: isWarmUp,
               isDropSet: isDropSet,
-              isFailure: isFail
+              isFailure: isFail,
             ),
           );
         }
@@ -531,14 +522,23 @@ class _WorkoutState extends State<Workout> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.list, color: Colors.black),
-          onPressed: () {
+        leading: GestureDetector(
+          onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const WorkoutListScreen()),
+              MaterialPageRoute(
+                builder: (context) => const WorkoutListScreen(),
+              ),
             );
           },
+          child: _buildDynamicIsland(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: const Icon(
+              Icons.list,
+              color: Colors.black,
+              size: 20,
+            ),
+          ),
         ),
         elevation: 0,
         toolbarHeight: 100,
@@ -570,7 +570,9 @@ class _WorkoutState extends State<Workout> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const StreakInfoScreen()),
+                MaterialPageRoute(
+                  builder: (context) => const StreakInfoScreen(),
+                ),
               );
             },
             child: _buildDynamicIsland(

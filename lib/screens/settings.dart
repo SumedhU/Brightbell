@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:brightbell/utils/auth_utils.dart';
-import 'package:brightbell/screens/goals.dart';
+import 'package:brightbell/screens/settings/goals.dart';
 
 class Settings extends StatelessWidget {
   const Settings({super.key});

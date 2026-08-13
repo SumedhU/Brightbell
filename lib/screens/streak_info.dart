@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy_stepper/easy_stepper.dart';
-import 'package:brightbell/models/workout.dart';
+
 import 'package:brightbell/utils/workout_utils.dart';
 import 'package:brightbell/utils/streak_utils.dart';
 import 'package:brightbell/utils/user_utils.dart';
