@@ -1,3 +1,4 @@
+import 'package:brightbell/screens/settings/notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:brightbell/utils/auth_utils.dart';
 import 'package:brightbell/screens/settings/goals.dart';
@@ -83,6 +84,10 @@ class Settings extends StatelessWidget {
             leading: const Icon(Icons.notifications_outlined),
             title: const Text('Notifications'),
             onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NotificationsScreen()),
+              );
               // TODO: Implement notifications settings
             },
           ),

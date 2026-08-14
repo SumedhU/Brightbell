@@ -12,7 +12,20 @@
           "package_name": "com.example.brightbell"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "921219255144-cvrk5pau806m0muau1lqnaute4vj34g8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.brightbell",
+            "certificate_hash": "a4e0b3b3811bc5b84ee3d3ed93b4826546aa13cf"
+          }
+        },
+        {
+          "client_id": "921219255144-e72p9m24vhpsgrkrrbtmg5ea0kdotcv1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyChlJw4NGYC2h_ttWa4CzvO-tZmvt63JCI"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "921219255144-e72p9m24vhpsgrkrrbtmg5ea0kdotcv1.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "921219255144-c86tuoor9392dejvkv7jqeuc9mqv5ror.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.brightbell"
+              }
+            }
+          ]
         }
       }
     }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:brightbell/utils/user_utils.dart';
+import 'package:brightbell/utils/notification_service.dart';
 
 class GoalsScreen extends StatefulWidget {
   const GoalsScreen({super.key});
@@ -29,6 +30,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
 
   Future<void> _saveGoals() async {
     await UserUtils.saveGoalDays(_selectedDays);
+    await NotificationService().scheduleNotifications();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Goals saved successfully')),

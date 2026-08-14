@@ -4,20 +4,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:brightbell/screens/workout.dart';
 import 'package:brightbell/screens/auth/signin.dart';
+import 'package:brightbell/utils/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-  } on FirebaseException catch (e) {
-    if (e.code != 'duplicate-app') {
-      rethrow;
-    }
-  } catch (e) {
-    print('Firebase init error: $e');
-  }
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  await NotificationService().init();
   runApp(const MyApp());
 }
 

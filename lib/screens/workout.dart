@@ -12,7 +12,7 @@ import 'package:brightbell/components/exercise_card.dart';
 import 'package:brightbell/screens/streak_info.dart';
 import 'package:brightbell/utils/streak_utils.dart';
 import 'package:brightbell/utils/user_utils.dart';
-
+import 'package:brightbell/utils/notification_service.dart';
 
 class Workout extends StatefulWidget {
   const Workout({super.key});
@@ -44,6 +44,46 @@ class _WorkoutState extends State<Workout> {
 
     _loadWorkoutForDate();
     _loadPastExercises();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkNotificationPrompt();
+      NotificationService().scheduleNotifications();
+    });
+  }
+
+  Future<void> _checkNotificationPrompt() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasPrompted = prefs.getBool('has_prompted_notifications') ?? false;
+    if (!hasPrompted) {
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Enable Notifications?'),
+          content: const Text('Would you like to receive reminders to log your workouts?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('No'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                NotificationService().setNotificationsEnabled(true);
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Yes'),
+            ),
+          ],
+        ),
+      );
+      await prefs.setBool('has_prompted_notifications', true);
+    }
   }
 
   Future<void> _loadPastExercises() async {
@@ -522,47 +562,24 @@ class _WorkoutState extends State<Workout> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const WorkoutListScreen(),
-              ),
-            );
-          },
-          child: _buildDynamicIsland(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: const Icon(
-              Icons.list,
-              color: Colors.black,
-              size: 20,
-            ),
-          ),
-        ),
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        toolbarHeight: 100,
         titleSpacing: 16,
         title: GestureDetector(
           onTap: _selectDate,
-          child: SizedBox(
-            width: 110,
-            child: _buildDynamicIsland(
-              child: Row(
-                children: [
-                  const Text('🗓️', style: TextStyle(fontSize: 16)),
-                  const SizedBox(width: 8),
-                  Text(
-                    _getFormattedDate(_currentDate),
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
+          child: Row(
+            children: [
+              const Text('🗓️', style: TextStyle(fontSize: 16)),
+              const SizedBox(width: 8),
+              Text(
+                _getFormattedDate(_currentDate),
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
-            ),
+            ],
           ),
         ),
         actions: [
@@ -589,6 +606,23 @@ class _WorkoutState extends State<Workout> {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const WorkoutListScreen()),
+              );
+            },
+            child: _buildDynamicIsland(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: const Icon(
+                Icons.drag_handle,
+                color: Colors.black,
+                size: 20,
               ),
             ),
           ),
@@ -780,16 +814,16 @@ class _WorkoutState extends State<Workout> {
                                 controller: _addExerciseController,
                                 textInputAction: TextInputAction.done,
                                 decoration: InputDecoration(
-                                  hintText: 'Add exercise...',
+                                  hintText: 'Add Exercise',
                                   filled: true,
                                   fillColor: Colors.white,
                                   border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(30),
+                                    borderRadius: BorderRadius.circular(50),
                                     borderSide: BorderSide(color: Colors.black),
                                   ),
                                   contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 20,
-                                    vertical: 14,
+                                    vertical: 24,
                                   ),
                                   suffixIcon: hasHistory
                                       ? IconButton(

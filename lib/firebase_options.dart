@@ -50,22 +50,22 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAfQJwtkeiWOwphkdEWtjPsX6hLQmVKZqY',
-    appId: '1:921219255144:web:9af1c1fd729cbe184224dd',
+    apiKey: 'AIzaSyChlJw4NGYC2h_ttWa4CzvO-tZmvt63JCI',
+    appId: '1:921219255144:android:4aadbd5c5189d4314224dd',
     messagingSenderId: '921219255144',
     projectId: 'brightbell-app',
     storageBucket: 'brightbell-app.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAfQJwtkeiWOwphkdEWtjPsX6hLQmVKZqY',
-    appId: '1:921219255144:web:9af1c1fd729cbe184224dd',
+    apiKey: 'AIzaSyAXEyWcrKyfIbVPGqXbt3P9AoVfwknFrOg',
+    appId: '1:921219255144:ios:4a6dfeb027f317c54224dd',
     messagingSenderId: '921219255144',
     projectId: 'brightbell-app',
     storageBucket: 'brightbell-app.firebasestorage.app',
+    androidClientId: '921219255144-cvrk5pau806m0muau1lqnaute4vj34g8.apps.googleusercontent.com',
+    iosClientId: '921219255144-c86tuoor9392dejvkv7jqeuc9mqv5ror.apps.googleusercontent.com',
     iosBundleId: 'com.example.brightbell',
   );
-
   // static const FirebaseOptions macos = FirebaseOptions(
   //   apiKey: 'AIzaSyAfQJwtkeiWOwphkdEWtjPsX6hLQmVKZqY',
   //   appId: '1:921219255144:web:9af1c1fd729cbe184224dd',
