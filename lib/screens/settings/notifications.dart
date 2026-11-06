@@ -1,3 +1,4 @@
+import 'package:brightbell/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:brightbell/utils/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,10 +25,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Future<void> _loadSettings() async {
     final enabled = await NotificationService().areNotificationsEnabled();
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _notificationsEnabled = enabled;
-      _morningEnabled = prefs.getBool('morning_notifications_enabled') ?? true;
-      _eveningEnabled = prefs.getBool('evening_notifications_enabled') ?? true;
+      _morningEnabled =
+          prefs.getBool(NotificationService.morningEnabledKey) ?? true;
+      _eveningEnabled =
+          prefs.getBool(NotificationService.eveningEnabledKey) ?? true;
       _isLoading = false;
     });
   }
@@ -36,7 +40,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     setState(() {
       _notificationsEnabled = value;
     });
-    await NotificationService().setNotificationsEnabled(value);
+    final enabled = await NotificationService().setNotificationsEnabled(value);
+    if (!mounted || enabled == value) return;
+    setState(() {
+      _notificationsEnabled = enabled;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Allow notifications for Brightbell in your device settings.',
+        ),
+      ),
+    );
   }
 
   Future<void> _toggleMorning(bool value) async {
@@ -44,7 +59,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       _morningEnabled = value;
     });
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('morning_notifications_enabled', value);
+    await prefs.setBool(NotificationService.morningEnabledKey, value);
     await NotificationService().scheduleNotifications();
   }
 
@@ -53,15 +68,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       _eveningEnabled = value;
     });
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('evening_notifications_enabled', value);
+    await prefs.setBool(NotificationService.eveningEnabledKey, value);
     await NotificationService().scheduleNotifications();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.cream,
       appBar: AppBar(
         title: const Text('Notifications'),
+        backgroundColor: AppColors.cream,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: AppColors.navy),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -73,30 +92,37 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   SwitchListTile(
                     title: const Text(
                       'Enable Notifications',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     subtitle: const Text(
                       'Receive reminders on your selected workout days.',
                     ),
                     value: _notificationsEnabled,
                     onChanged: _toggleNotifications,
-                    activeThumbColor: Colors.blue,
+                    activeThumbColor: AppColors.cream,
                   ),
                   if (_notificationsEnabled) ...[
                     const Divider(),
                     SwitchListTile(
                       title: const Text('Morning Reminders'),
-                      subtitle: const Text('Sent at 9:00 AM on your workout days.'),
+                      subtitle: const Text(
+                        'Sent at 9:00 AM on your workout days.',
+                      ),
                       value: _morningEnabled,
                       onChanged: _toggleMorning,
-                      activeThumbColor: Colors.blue,
+                      activeThumbColor: AppColors.cream,
                     ),
                     SwitchListTile(
                       title: const Text('Evening Reminders'),
-                      subtitle: const Text('Sent at 6:00 PM if you haven\'t logged a workout.'),
+                      subtitle: const Text(
+                        'Sent at 6:00 PM if you haven\'t logged a workout.',
+                      ),
                       value: _eveningEnabled,
                       onChanged: _toggleEvening,
-                      activeThumbColor: Colors.blue,
+                      activeThumbColor: AppColors.cream,
                     ),
                   ],
                 ],

@@ -9,11 +9,23 @@ class UserUtils {
     if (user == null) return [1, 2, 3, 4, 5, 6, 7];
 
     final doc = await _firestore.collection('Users').doc(user.uid).get();
-    if (doc.exists && doc.data() != null && doc.data()!.containsKey('goalDays')) {
+    if (doc.exists &&
+        doc.data() != null &&
+        doc.data()!.containsKey('goalDays')) {
       final data = doc.data()!['goalDays'] as List<dynamic>;
       return data.map((e) => e as int).toList();
     }
     return [1, 2, 3, 4, 5, 6, 7];
+  }
+
+  static Future<bool> hasGoalDays() async {
+    final user = AuthUtils.currentUser;
+    if (user == null) return false;
+
+    final doc = await _firestore.collection('Users').doc(user.uid).get();
+    return doc.exists &&
+        doc.data() != null &&
+        doc.data()!.containsKey('goalDays');
   }
 
   static Future<void> saveGoalDays(List<int> goalDays) async {

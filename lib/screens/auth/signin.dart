@@ -1,3 +1,4 @@
+import 'package:brightbell/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:brightbell/utils/auth_utils.dart';
@@ -17,40 +18,33 @@ class _SignInState extends State<SignIn> {
       _isLoading = true;
     });
 
+    String? error;
     try {
+      // On success, the auth state listener in main.dart navigates away.
       final userCredential = await AuthUtils.signInWithGoogle();
-      if (userCredential == null) {
-        setState(() {
-          _isLoading = false;
-        });
-        return;
-      }
-      // Navigation is handled by auth state listener in main.dart
+      if (userCredential != null) return;
     } on FirebaseAuthException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message ?? 'Authentication Error')),
-        );
-      }
-      setState(() {
-        _isLoading = false;
-      });
+      error = e.message ?? 'Authentication Error';
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('An unexpected error occurred')),
-        );
-      }
-      setState(() {
-        _isLoading = false;
-      });
+      debugPrint('Sign in failed: $e');
+      error = 'An unexpected error occurred';
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+    });
+    if (error != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.cream,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -59,11 +53,7 @@ class _SignInState extends State<SignIn> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Spacer(),
-              const Icon(
-                Icons.fitness_center,
-                size: 80,
-                color: Colors.amber,
-              ),
+              const Icon(Icons.fitness_center, size: 80, color: AppColors.navy),
               const SizedBox(height: 24),
               const Text(
                 'Brightbell',
@@ -72,43 +62,36 @@ class _SignInState extends State<SignIn> {
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
                   letterSpacing: -1,
+                  color: AppColors.orange,
                 ),
               ),
               const SizedBox(height: 8),
               const Text(
                 'Log your workouts simply.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.black54,
-                ),
+                style: TextStyle(fontSize: 16, color: AppColors.navy),
               ),
               const Spacer(),
               _isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(color: Colors.amber),
+                      child: CircularProgressIndicator(color: AppColors.navy),
                     )
                   : ElevatedButton(
                       onPressed: _signInWithGoogle,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black87,
+                        backgroundColor: AppColors.navy,
+                        foregroundColor: AppColors.cream,
                         elevation: 2,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: Colors.grey.shade300),
+                          side: BorderSide(color: AppColors.border),
                         ),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Image.network(
-                            'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg',
-                            height: 24,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.g_mobiledata, size: 24),
-                          ),
+                          const Icon(Icons.g_mobiledata, size: 32),
                           const SizedBox(width: 12),
                           const Text(
                             'Sign in with Google',

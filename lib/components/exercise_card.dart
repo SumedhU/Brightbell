@@ -1,5 +1,7 @@
+import 'package:brightbell/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:brightbell/models/exercise.dart' as models;
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ExerciseCard extends StatelessWidget {
   final models.Exercise exercise;
@@ -18,14 +20,14 @@ class ExerciseCard extends StatelessWidget {
   });
 
   void _showEditNameDialog(BuildContext context) {
-    final TextEditingController _controller = TextEditingController(text: exercise.name);
+    final controller = TextEditingController(text: exercise.name);
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Edit Exercise Name'),
           content: TextField(
-            controller: _controller,
+            controller: controller,
             decoration: const InputDecoration(hintText: "Exercise name"),
             autofocus: true,
           ),
@@ -36,7 +38,7 @@ class ExerciseCard extends StatelessWidget {
             ),
             TextButton(
               onPressed: () {
-                final newName = _controller.text.trim();
+                final newName = controller.text.trim();
                 if (newName.isNotEmpty && newName != exercise.name) {
                   onEditName(newName);
                 }
@@ -53,17 +55,21 @@ class ExerciseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.white,
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+      color: AppColors.surface,
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+        side: BorderSide.none,
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onEdit,
         onDoubleTap: () => _showEditNameDialog(context),
+        splashColor: AppColors.border,
+        highlightColor: AppColors.border,
         child: Padding(
-          padding: const EdgeInsets.all(12.0),
+          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
           child: Row(
             children: [
               Expanded(
@@ -73,24 +79,28 @@ class ExerciseCard extends StatelessWidget {
                     Text(
                       exercise.name,
                       style: const TextStyle(
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     if (exercise.sets.isNotEmpty)
                       Text(
                         setsText,
                         style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.black87,
+                          fontSize: 14,
+                          color: AppColors.navy,
                         ),
                       ),
                   ],
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                icon: const Icon(
+                  LucideIcons.trash300,
+                  color: AppColors.navy,
+                  size: 20,
+                ),
                 onPressed: onDelete,
               ),
             ],

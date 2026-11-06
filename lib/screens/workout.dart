@@ -1,47 +1,59 @@
-import 'package:brightbell/screens/settings.dart';
-import 'package:brightbell/screens/workout_list.dart';
+import 'package:brightbell/theme/app_theme.dart';
+import 'package:brightbell/screens/analytics/ai/chat.dart';
 import 'package:flutter/material.dart';
 import 'package:brightbell/components/add_sets.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:brightbell/utils/date_utils.dart';
 import 'package:brightbell/utils/workout_utils.dart';
-import 'dart:async';
-import 'dart:convert';
 import 'package:brightbell/models/exercise.dart' as models;
 import 'package:brightbell/models/workout.dart' as workout_model;
 import 'package:brightbell/components/exercise_card.dart';
-import 'package:brightbell/screens/streak_info.dart';
-import 'package:brightbell/utils/streak_utils.dart';
-import 'package:brightbell/utils/user_utils.dart';
 import 'package:brightbell/utils/notification_service.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class Workout extends StatefulWidget {
-  const Workout({super.key});
+  /// Shown at the end of the app bar.
+  final Widget appBarAction;
+
+  /// Called after the workout for a date is saved or removed.
+  final VoidCallback onWorkoutSaved;
+
+  const Workout({
+    super.key,
+    required this.appBarAction,
+    required this.onWorkoutSaved,
+  });
 
   @override
-  State<Workout> createState() => _WorkoutState();
+  State<Workout> createState() => WorkoutState();
 }
 
-class _WorkoutState extends State<Workout> {
+class WorkoutState extends State<Workout> {
+  // Page index of today. Lower indexes are earlier dates; there are no pages
+  // after today, so workouts can't be logged in the future.
+  static const int _todayPage = 10000;
+
   final TextEditingController _addExerciseController = TextEditingController();
-  final PageController _pageController = PageController(initialPage: 10000);
-  final FocusNode _focusNode = FocusNode();
+  final PageController _pageController = PageController(
+    initialPage: _todayPage,
+  );
   late DateTime _currentDate;
-  int _streak = 0;
-  Timer? _debounceTimer;
+  int _currentPageIndex = _todayPage;
 
   String? _currentDocId;
-  Map<String, Map<String, String>> _pastExercises = {};
-  final Map<String, Timer> _historyTimers = {};
-  final ScrollController _scrollController = ScrollController();
-  int _currentPageIndex = 10000;
   List<models.Exercise> _exercises = [];
+  bool _isLoadingWorkout = false;
+  Map<String, ExerciseHistory> _pastExercises = {};
+
+  // Saves run one at a time so that, e.g., a delete followed by an undo
+  // can't reach Firestore in the wrong order.
+  Future<void> _pendingSave = Future.value();
+
+  String get _currentDateStr => dateKey(_currentDate);
 
   @override
   void initState() {
     super.initState();
-    _currentDate = DateTime.now();
-    _loadStreak();
-
+    _currentDate = _dateForPage(_todayPage);
     _loadWorkoutForDate();
     _loadPastExercises();
 
@@ -51,115 +63,87 @@ class _WorkoutState extends State<Workout> {
     });
   }
 
+  @override
+  void dispose() {
+    _addExerciseController.dispose();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  DateTime _dateForPage(int index) {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day + (index - _todayPage));
+  }
+
   Future<void> _checkNotificationPrompt() async {
-    final prefs = await SharedPreferences.getInstance();
-    final hasPrompted = prefs.getBool('has_prompted_notifications') ?? false;
-    if (!hasPrompted) {
-      if (!mounted) return;
-      await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Enable Notifications?'),
-          content: const Text('Would you like to receive reminders to log your workouts?'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text('No'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                NotificationService().setNotificationsEnabled(true);
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Yes'),
-            ),
-          ],
+    final notifications = NotificationService();
+    if (await notifications.hasPrompted() || !mounted) return;
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enable Notifications?'),
+        content: const Text(
+          'Would you like to receive reminders to log your workouts?',
         ),
-      );
-      await prefs.setBool('has_prompted_notifications', true);
-    }
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('No'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              notifications.setNotificationsEnabled(true);
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.navy,
+              foregroundColor: AppColors.cream,
+            ),
+            child: const Text('Yes'),
+          ),
+        ],
+      ),
+    );
+    await notifications.markPrompted();
   }
 
   Future<void> _loadPastExercises() async {
-    String dateStr =
-        '${_currentDate.year}-${_currentDate.month.toString().padLeft(2, '0')}-${_currentDate.day.toString().padLeft(2, '0')}';
+    final dateStr = _currentDateStr;
     try {
       final history = await WorkoutUtils.getLatestExercisesHistory(
         beforeDateStr: dateStr,
       );
-      if (mounted) {
+      if (mounted && dateStr == _currentDateStr) {
         setState(() {
           _pastExercises = history;
         });
       }
     } catch (e) {
-      print('Error loading past exercises: $e');
+      debugPrint('Error loading past exercises: $e');
     }
   }
 
   Future<void> _loadWorkoutForDate() async {
+    final dateStr = _currentDateStr;
     setState(() {
       _currentDocId = null;
       _exercises = [];
+      _isLoadingWorkout = true;
     });
 
-    String dateStr =
-        '${_currentDate.year}-${_currentDate.month.toString().padLeft(2, '0')}-${_currentDate.day.toString().padLeft(2, '0')}';
-
-    DateTime now = DateTime.now();
-    String todayStr =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-
-    // 1. Try to load from local SharedPreferences cache first if it's today's date
-    if (dateStr == todayStr) {
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        final cachedWorkout = prefs.getString('workout_$dateStr');
-        if (cachedWorkout != null) {
-          final decoded = jsonDecode(cachedWorkout);
-          final workout = workout_model.Workout.fromMap(decoded);
-          if (mounted) {
-            setState(() {
-              _currentDocId = workout.docId;
-              _exercises = workout.exercises;
-            });
-          }
-        }
-      } catch (e) {
-        print('Error loading from local cache: $e');
-      }
-    }
-
-    // 2. Fetch from Firestore for the latest updates
     try {
       final workout = await WorkoutUtils.loadWorkoutForDate(dateStr);
-
-      if (mounted) {
-        setState(() {
-          if (workout != null) {
-            _currentDocId = workout.docId;
-            _exercises = workout.exercises;
-
-            // Update local cache only if it's today's date
-            if (dateStr == todayStr) {
-              SharedPreferences.getInstance().then((prefs) {
-                final toSave = workout.toMap();
-                toSave['docId'] = workout.docId;
-                prefs.setString('workout_$dateStr', jsonEncode(toSave));
-              });
-            }
-          }
-        });
-      }
+      // Ignore results for a date the user has already swiped away from.
+      if (!mounted || dateStr != _currentDateStr) return;
+      setState(() {
+        _currentDocId = workout?.docId;
+        _exercises = workout?.exercises ?? [];
+      });
     } catch (e) {
-      print('Error loading workout: $e');
-      if (mounted) {
+      debugPrint('Error loading workout: $e');
+      if (mounted && dateStr == _currentDateStr) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -168,27 +152,22 @@ class _WorkoutState extends State<Workout> {
           ),
         );
       }
+    } finally {
+      if (mounted && dateStr == _currentDateStr) {
+        setState(() {
+          _isLoadingWorkout = false;
+        });
+      }
     }
   }
 
   String _setsToText(List<models.Set> sets) {
-    List<String> setStrings = [];
-    for (var s in sets) {
-      String type = '';
-      if (s.isWarmUp) type = '(W)';
-      if (s.isDropSet) type = '(D)';
-      if (s.isFailure) type = '(F)';
-      String weightStr = s.weight == s.weight.toInt()
-          ? s.weight.toInt().toString()
-          : s.weight.toString();
-      setStrings.add('[${s.numberOfReps}, $weightStr]$type');
-    }
-    return setStrings.join(' ');
+    return sets.map((s) => s.toText()).join(' ');
   }
 
-  String _exercisesToText() {
+  String _exercisesToText(List<models.Exercise> exercises) {
     StringBuffer sb = StringBuffer();
-    for (var ex in _exercises) {
+    for (var ex in exercises) {
       sb.writeln(ex.name);
       String setsStr = _setsToText(ex.sets);
       if (setsStr.isNotEmpty) {
@@ -198,189 +177,107 @@ class _WorkoutState extends State<Workout> {
     return sb.toString().trimRight();
   }
 
-  Future<void> _saveWorkout() async {
-    String dateStr =
-        '${_currentDate.year}-${_currentDate.month.toString().padLeft(2, '0')}-${_currentDate.day.toString().padLeft(2, '0')}';
-    final rawText = _exercisesToText();
+  /// Saves the current date's exercises. A day with no exercises left is
+  /// deleted so it no longer shows in the history or counts for the streak.
+  Future<void> _saveWorkout() {
+    final dateStr = _currentDateStr;
+    final exercises = List<models.Exercise>.of(_exercises);
 
-    final workout = workout_model.Workout(
-      docId: _currentDocId,
-      date: dateStr,
-      userId: '', // WorkoutUtils will set this
-      rawText: rawText,
-      exercises: List.from(_exercises),
-    );
-
-    // Save to local cache immediately ONLY if it's today's date
-    DateTime now = DateTime.now();
-    String todayStr =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-
-    if (dateStr == todayStr) {
+    return _pendingSave = _pendingSave.then((_) async {
       try {
-        final prefs = await SharedPreferences.getInstance();
-        final toSave = workout.toMap();
-        toSave['docId'] = _currentDocId;
-        await prefs.setString('workout_$dateStr', jsonEncode(toSave));
+        if (exercises.isEmpty) {
+          await WorkoutUtils.deleteWorkout(dateStr);
+          if (dateStr == _currentDateStr) _currentDocId = null;
+        } else {
+          final docId = await WorkoutUtils.saveWorkout(
+            workout_model.Workout(
+              docId: dateStr == _currentDateStr ? _currentDocId : null,
+              date: dateStr,
+              userId: '', // WorkoutUtils sets this
+              rawText: _exercisesToText(exercises),
+              exercises: exercises,
+            ),
+          );
+          if (dateStr == _currentDateStr) _currentDocId = docId;
+        }
       } catch (e) {
-        print('Error saving to local cache: $e');
-      }
-    }
-
-    // Submit to Firebase
-    try {
-      _currentDocId = await WorkoutUtils.saveWorkout(workout);
-    } catch (e) {
-      print('Error saving workout: $e');
-    }
-  }
-
-  List<models.Exercise> _parseTextToExercises(String text) {
-    List<models.Exercise> exercises = [];
-    final lines = text.split('\n');
-    String currentExerciseName = '';
-    List<models.Set> currentSets = [];
-    int setIdCounter = 0;
-
-    for (var line in lines) {
-      line = line.trim();
-      if (line.isEmpty) continue;
-
-      if (line.startsWith('[') && line.contains(']')) {
-        final matches = RegExp(
-          r'\[([0-9.]+),\s*([0-9.]+)\](\([WDF]\))?',
-        ).allMatches(line);
-        for (final match in matches) {
-          int reps = double.parse(match.group(1)!).toInt();
-          double weight = double.parse(match.group(2)!);
-          String type = match.group(3) ?? '';
-          bool isWarmUp = type == '(W)';
-          bool isDropSet = type == '(D)';
-          bool isFail = type == '(F)';
-          currentSets.add(
-            models.Set(
-              id: setIdCounter++,
-              numberOfReps: reps,
-              weight: weight,
-              isWarmUp: isWarmUp,
-              isDropSet: isDropSet,
-              isFailure: isFail,
-            ),
+        debugPrint('Error saving workout: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not save workout.')),
           );
         }
-      } else {
-        if (currentExerciseName.isNotEmpty || currentSets.isNotEmpty) {
-          exercises.add(
-            models.Exercise(
-              name: currentExerciseName.isNotEmpty
-                  ? currentExerciseName
-                  : 'Unknown',
-              numberOfSets: currentSets.length,
-              sets: List.from(currentSets),
-            ),
-          );
-          currentSets.clear();
-        }
-        currentExerciseName = line;
       }
-    }
-    if (currentExerciseName.isNotEmpty || currentSets.isNotEmpty) {
-      exercises.add(
-        models.Exercise(
-          name: currentExerciseName.isNotEmpty
-              ? currentExerciseName
-              : 'Unknown',
-          numberOfSets: currentSets.length,
-          sets: List.from(currentSets),
-        ),
-      );
-    }
-    return exercises;
-  }
-
-  Future<void> _loadStreak() async {
-    final goalDays = await UserUtils.getGoalDays();
-
-    final workouts = await WorkoutUtils.getAllWorkouts();
-    final timeline = StreakUtils.calculateTimeline(workouts, goalDays);
-    final currentStreak = StreakUtils.getCurrentStreak(timeline);
-
-    setState(() {
-      _streak = currentStreak;
+      widget.onWorkoutSaved();
+      NotificationService().scheduleNotifications();
     });
   }
 
-  Future<void> _updateStreak() async {
-    await _loadStreak();
-  }
-
-  Future<void> _showAddSetsBottomSheet(
+  /// Opens the set editor for a new exercise, or for the one at
+  /// [exerciseIndex] when editing.
+  Future<void> _showAddSetsDialog(
     String exerciseName, {
     int? exerciseIndex,
-    String? initialSetsText,
+    List<models.Set> initialSets = const [],
   }) async {
-    final result = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) =>
-          AddSets(exerciseName: exerciseName, initialSetsText: initialSetsText),
+    // Wait for the day to load, or saving would overwrite its exercises.
+    if (_isLoadingWorkout) return;
+    final dateStr = _currentDateStr;
+    final result = await AddSets.show(
+      context,
+      exerciseName: exerciseName,
+      initialSets: initialSets,
     );
 
-    if (result != null) {
-      final parsedExercises = _parseTextToExercises(result);
-      if (parsedExercises.isNotEmpty) {
-        final newExercise = parsedExercises.first;
-        final newName = newExercise.name;
-        final newSets = newExercise.sets;
-        setState(() {
-          if (exerciseIndex != null &&
-              exerciseIndex >= 0 &&
-              exerciseIndex < _exercises.length) {
-            _exercises[exerciseIndex] = models.Exercise(
-              name: newName,
-              numberOfSets: newSets.length,
-              sets: newSets,
-            );
-          } else {
-            _exercises.add(
-              models.Exercise(
-                name: newName,
-                numberOfSets: newSets.length,
-                sets: newSets,
-              ),
-            );
-          }
-        });
-        await _saveWorkout();
+    if (result == null || !mounted || dateStr != _currentDateStr) return;
+    setState(() {
+      if (exerciseIndex != null &&
+          exerciseIndex >= 0 &&
+          exerciseIndex < _exercises.length) {
+        _exercises[exerciseIndex] = result;
+      } else {
+        _exercises.add(result);
       }
-    }
+    });
+    await _saveWorkout();
   }
 
-  @override
-  void dispose() {
-    for (var timer in _historyTimers.values) {
-      timer.cancel();
-    }
-    _historyTimers.clear();
-    _debounceTimer?.cancel();
-    _addExerciseController.dispose();
-    _pageController.dispose();
-    _focusNode.dispose();
-    _scrollController.dispose();
-    super.dispose();
+  void _deleteExercise(int index) {
+    final deletedExercise = _exercises[index];
+    setState(() {
+      _exercises.removeAt(index);
+    });
+    _saveWorkout();
+
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.navy,
+        content: Text('${deletedExercise.name} deleted.'),
+        action: SnackBarAction(
+          label: 'Undo',
+          textColor: AppColors.cream,
+          onPressed: () {
+            setState(() {
+              _exercises.insert(
+                index.clamp(0, _exercises.length),
+                deletedExercise,
+              );
+            });
+            _saveWorkout();
+          },
+        ),
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   void _onPageChanged(int index) {
-    // Swiping right goes to lower index (e.g. 9999).
-    // The user wants "Swiping right to go back on the date".
-    // So lower index = older date (negative offset).
-    final offset = index - 10000;
+    // The undo action of a delete snackbar belongs to the previous date.
+    ScaffoldMessenger.of(context).clearSnackBars();
     setState(() {
       _currentPageIndex = index;
-      _currentDate = DateTime.now().add(Duration(days: offset));
+      _currentDate = _dateForPage(index);
     });
     _loadWorkoutForDate();
     _loadPastExercises();
@@ -391,14 +288,15 @@ class _WorkoutState extends State<Workout> {
       context: context,
       initialDate: _currentDate,
       firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      lastDate: DateTime.now(),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Colors.black, // header background color
-              onPrimary: Colors.white, // header text color
-              onSurface: Colors.black, // body text color
+              primary: AppColors.navy, // header background color
+              onPrimary: AppColors.cream, // header text color
+              onSurface: AppColors.navy, // body text color
+              surface: AppColors.cream,
             ),
           ),
           child: child!,
@@ -407,67 +305,35 @@ class _WorkoutState extends State<Workout> {
     );
 
     if (picked != null) {
-      DateTime today = DateTime.now();
-      DateTime todayUtc = DateTime.utc(today.year, today.month, today.day);
-      DateTime pickedUtc = DateTime.utc(picked.year, picked.month, picked.day);
-      int offset = pickedUtc.difference(todayUtc).inDays;
-
-      int targetPage = 10000 + offset;
-
-      if (_pageController.page?.round() != targetPage) {
-        _pageController.animateToPage(
-          targetPage,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
-      }
+      jumpToDate(picked);
     }
   }
 
-  Widget _buildDynamicIsland({
-    required Widget child,
-    EdgeInsetsGeometry? padding,
-  }) {
-    return Container(
-      padding:
-          padding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: child,
-    );
+  void jumpToDate(DateTime picked) {
+    final today = _dateForPage(_todayPage);
+    final pickedDay = DateTime(picked.year, picked.month, picked.day);
+    // Round to absorb the hour lost or gained across a DST change.
+    final offset = (pickedDay.difference(today).inHours / 24).round();
+    final targetPage = (_todayPage + offset).clamp(0, _todayPage);
+
+    // Jump rather than animate, which would load every date in between.
+    if (targetPage != _currentPageIndex) {
+      _pageController.jumpToPage(targetPage);
+    }
   }
 
-  String _getFormattedDate(DateTime date) {
-    final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${months[date.month - 1]} ${date.day}';
+  /// Reloads everything derived from the saved workouts, for when they were
+  /// changed outside this screen.
+  void reloadWorkouts() {
+    _loadWorkoutForDate();
+    _loadPastExercises();
+    NotificationService().scheduleNotifications();
   }
 
   void _showHistoryBottomSheet(
     BuildContext context,
     String exerciseName,
-    Map<String, String> historyData,
+    ExerciseHistory history,
   ) {
     showModalBottomSheet(
       context: context,
@@ -488,11 +354,10 @@ class _WorkoutState extends State<Workout> {
                     'Previous Entry',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
-                  if (historyData['date'] != null)
-                    Text(
-                      historyData['date']!,
-                      style: const TextStyle(fontSize: 14, color: Colors.grey),
-                    ),
+                  Text(
+                    history.date,
+                    style: const TextStyle(fontSize: 14, color: AppColors.navy),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -500,11 +365,11 @@ class _WorkoutState extends State<Workout> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
+                  color: AppColors.surface,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  historyData['text'] ?? 'No data',
+                  history.text,
                   style: const TextStyle(fontSize: 16, height: 1.5),
                 ),
               ),
@@ -522,7 +387,7 @@ class _WorkoutState extends State<Workout> {
                       ),
                       child: const Text(
                         'Close',
-                        style: TextStyle(color: Colors.black),
+                        style: TextStyle(color: AppColors.navy),
                       ),
                     ),
                   ),
@@ -531,16 +396,15 @@ class _WorkoutState extends State<Workout> {
                     child: ElevatedButton(
                       onPressed: () {
                         Navigator.pop(context);
-                        _updateStreak();
-                        _showAddSetsBottomSheet(
+                        _showAddSetsDialog(
                           exerciseName,
-                          initialSetsText: historyData['text'],
+                          initialSets: history.sets,
                         );
                         _addExerciseController.clear();
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        foregroundColor: Colors.white,
+                        backgroundColor: AppColors.navy,
+                        foregroundColor: AppColors.cream,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
@@ -561,298 +425,301 @@ class _WorkoutState extends State<Workout> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      backgroundColor: AppColors.cream,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.cream.withValues(alpha: 0.5),
         elevation: 0,
-        titleSpacing: 16,
         title: GestureDetector(
           onTap: _selectDate,
-          child: Row(
-            children: [
-              const Text('🗓️', style: TextStyle(fontSize: 16)),
-              const SizedBox(width: 8),
-              Text(
-                _getFormattedDate(_currentDate),
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ],
+          child: Text(
+            formatShortDate(_currentDate),
+            style: const TextStyle(
+              color: AppColors.orange,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
           ),
         ),
-        actions: [
-          GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const StreakInfoScreen(),
-                ),
-              );
-            },
-            child: _buildDynamicIsland(
-              child: Row(
-                children: [
-                  const Text('🔥', style: TextStyle(fontSize: 16)),
-                  const SizedBox(width: 6),
-                  Text(
-                    '$_streak',
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const WorkoutListScreen()),
-              );
-            },
-            child: _buildDynamicIsland(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: const Icon(
-                Icons.drag_handle,
-                color: Colors.black,
-                size: 20,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const Settings()),
-              );
-            },
-            child: _buildDynamicIsland(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: const Icon(
-                Icons.settings_outlined,
-                color: Colors.black,
-                size: 20,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
+        actions: [widget.appBarAction],
       ),
-      // floatingActionButtonLocation: ExpandableFab.location,
-      // floatingActionButton: ExpandableFab(
-      //   openButtonBuilder: RotateFloatingActionButtonBuilder(
-      //     child: const Icon(Icons.edit),
-      //     fabSize: ExpandableFabSize.regular,
-      //     foregroundColor: Colors.black,
-      //     backgroundColor: Colors.white,
-      //     shape: const CircleBorder(),
-      //   ),
-      //   closeButtonBuilder: DefaultFloatingActionButtonBuilder(
-      //     child: const Icon(Icons.close),
-      //     fabSize: ExpandableFabSize.small,
-      //     foregroundColor: Colors.redAccent,
-      //     backgroundColor: Colors.white,
-      //     shape: const CircleBorder(),
-      //   ),
-      //   children: [
-      //     FloatingActionButton.small(
-      //       heroTag: null,
-      //       onPressed: () {
-      //         Navigator.push(
-      //           context,
-      //           MaterialPageRoute(builder: (context) => const Analytics(scrollToWeights: true)),
-      //         );
-      //       },
-      //       backgroundColor: Colors.white,
-      //       foregroundColor: Colors.black,
-      //       child: const Icon(Icons.monitor_weight_outlined),
-      //     ),
-      //     FloatingActionButton.small(
-      //       heroTag: null,
-      //       onPressed: () {
-      //         Navigator.push(
-      //           context,
-      //           MaterialPageRoute(builder: (context) => const Analytics(scrollToWeights: false)),
-      //         );
-      //       },
-      //       backgroundColor: Colors.white,
-      //       foregroundColor: Colors.black,
-      //       child: const Icon(Icons.analytics_outlined),
-      //     ),
-      //   ],
-      // ),
       body: PageView.builder(
         controller: _pageController,
+        itemCount: _todayPage + 1,
         onPageChanged: _onPageChanged,
         itemBuilder: (context, index) {
           final bool isActivePage = index == _currentPageIndex;
 
           return SafeArea(
+            top: false,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Stack(
                 children: [
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: _exercises.length,
-                      itemBuilder: (context, exIndex) {
-                        final ex = _exercises[exIndex];
-                        return ExerciseCard(
-                          exercise: ex,
-                          setsText: _setsToText(ex.sets),
-                          onEdit: () {
-                            _showAddSetsBottomSheet(
-                              ex.name,
-                              exerciseIndex: exIndex,
-                              initialSetsText: _setsToText(ex.sets),
-                            );
-                          },
-                          onDelete: () {
-                            setState(() {
-                              _exercises.removeAt(exIndex);
-                            });
-                            _saveWorkout();
-                          },
-                          onEditName: (newName) {
-                            setState(() {
-                              _exercises[exIndex].name = newName;
-                            });
-                            _saveWorkout();
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                  if (isActivePage)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16.0, top: 8.0),
-                      child: ValueListenableBuilder<TextEditingValue>(
-                        valueListenable: _addExerciseController,
-                        builder: (context, value, child) {
-                          final currentText = value.text.trim().toLowerCase();
-                          final hasHistory = _pastExercises.containsKey(
-                            currentText,
+                  // Only the active page shows data; neighbouring pages
+                  // would otherwise show this date's exercises mid-swipe.
+                  if (isActivePage && _isLoadingWorkout)
+                    const Center(
+                      child: CircularProgressIndicator(color: AppColors.navy),
+                    )
+                  else if (!isActivePage || _exercises.isEmpty)
+                    Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            LucideIcons.dumbbell300,
+                            size: 96,
+                            color: AppColors.border,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'Brightbell',
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.orange,
+                              letterSpacing: 2.0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Positioned.fill(
+                      child: ListView.builder(
+                        padding: EdgeInsets.only(top: 120, bottom: 100),
+                        itemCount: _exercises.length,
+                        itemBuilder: (context, exIndex) {
+                          final ex = _exercises[exIndex];
+                          return ExerciseCard(
+                            exercise: ex,
+                            setsText: _setsToText(ex.sets),
+                            onEdit: () {
+                              _showAddSetsDialog(
+                                ex.name,
+                                exerciseIndex: exIndex,
+                                initialSets: ex.sets,
+                              );
+                            },
+                            onDelete: () => _deleteExercise(exIndex),
+                            onEditName: (newName) {
+                              setState(() {
+                                _exercises[exIndex].name = newName;
+                              });
+                              _saveWorkout();
+                            },
                           );
+                        },
+                      ),
+                    ),
+                  if (isActivePage)
+                    Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 16.0, top: 8.0),
+                        child: ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: _addExerciseController,
+                          builder: (context, value, child) {
+                            final currentText = value.text.trim().toLowerCase();
+                            final hasHistory = _pastExercises.containsKey(
+                              currentText,
+                            );
 
-                          List<String> suggestions = [];
-                          if (currentText.isNotEmpty) {
-                            suggestions = _pastExercises.keys
-                                .where(
-                                  (key) =>
-                                      key.contains(currentText) &&
-                                      key != currentText,
-                                )
-                                .take(5)
-                                .toList();
-                          }
+                            List<String> suggestions = [];
+                            if (currentText.isNotEmpty) {
+                              suggestions = _pastExercises.keys
+                                  .where(
+                                    (key) =>
+                                        key.contains(currentText) &&
+                                        key != currentText,
+                                  )
+                                  .take(5)
+                                  .toList();
+                            }
 
-                          return Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (suggestions.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 8.0),
-                                  child: Material(
-                                    elevation: 4,
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: Container(
-                                      constraints: const BoxConstraints(
-                                        maxHeight: 200,
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (suggestions.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 8.0),
+                                    child: Material(
+                                      elevation: 4,
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Container(
+                                        constraints: const BoxConstraints(
+                                          maxHeight: 200,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surface,
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                        ),
+                                        child: ListView.separated(
+                                          padding: EdgeInsets.zero,
+                                          shrinkWrap: true,
+                                          itemCount: suggestions.length,
+                                          separatorBuilder: (context, index) =>
+                                              const Divider(height: 1),
+                                          itemBuilder: (context, index) {
+                                            final suggestion =
+                                                suggestions[index];
+                                            // Capitalize each word for display
+                                            final displayText = suggestion
+                                                .split(' ')
+                                                .map((word) {
+                                                  if (word.isEmpty) return '';
+                                                  return word[0].toUpperCase() +
+                                                      word.substring(1);
+                                                })
+                                                .join(' ');
+
+                                            return ListTile(
+                                              title: Text(displayText),
+                                              onTap: () {
+                                                _addExerciseController.text =
+                                                    displayText;
+                                                _addExerciseController
+                                                        .selection =
+                                                    TextSelection.fromPosition(
+                                                      TextPosition(
+                                                        offset:
+                                                            displayText.length,
+                                                      ),
+                                                    );
+                                              },
+                                            );
+                                          },
+                                        ),
                                       ),
+                                    ),
+                                  ),
+                                Row(
+                                  children: [
+                                    Container(
+                                      margin: const EdgeInsets.only(left: 12),
                                       decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(16),
+                                        color: AppColors.navy,
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.1,
+                                            ),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
                                       ),
-                                      child: ListView.separated(
-                                        padding: EdgeInsets.zero,
-                                        shrinkWrap: true,
-                                        itemCount: suggestions.length,
-                                        separatorBuilder: (context, index) =>
-                                            const Divider(height: 1),
-                                        itemBuilder: (context, index) {
-                                          final suggestion = suggestions[index];
-                                          // Capitalize each word for display
-                                          final displayText = suggestion
-                                              .split(' ')
-                                              .map((word) {
-                                                if (word.isEmpty) return '';
-                                                return word[0].toUpperCase() +
-                                                    word.substring(1);
-                                              })
-                                              .join(' ');
-
-                                          return ListTile(
-                                            title: Text(displayText),
-                                            onTap: () {
-                                              _addExerciseController.text =
-                                                  displayText;
-                                              _addExerciseController.selection =
-                                                  TextSelection.fromPosition(
-                                                    TextPosition(
-                                                      offset:
-                                                          displayText.length,
-                                                    ),
-                                                  );
-                                            },
+                                      child: IconButton(
+                                        iconSize: 32,
+                                        color: AppColors.cream,
+                                        icon: const Icon(LucideIcons.brainCog),
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  const ChatScreen(),
+                                            ),
                                           );
                                         },
                                       ),
                                     ),
-                                  ),
-                                ),
-                              TextField(
-                                controller: _addExerciseController,
-                                textInputAction: TextInputAction.done,
-                                decoration: InputDecoration(
-                                  hintText: 'Add Exercise',
-                                  filled: true,
-                                  fillColor: Colors.white,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(50),
-                                    borderSide: BorderSide(color: Colors.black),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 24,
-                                  ),
-                                  suffixIcon: hasHistory
-                                      ? IconButton(
-                                          icon: const Icon(
-                                            Icons.history,
-                                            color: Colors.blue,
+                                    Expanded(
+                                      child: Container(
+                                        margin: const EdgeInsets.only(
+                                          left: 24,
+                                          right: 8,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surface,
+                                          borderRadius: BorderRadius.circular(
+                                            50,
                                           ),
-                                          onPressed: () {
-                                            _showHistoryBottomSheet(
-                                              context,
-                                              _addExerciseController.text
-                                                  .trim(),
-                                              _pastExercises[currentText]!,
-                                            );
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(
+                                                alpha: 0.1,
+                                              ),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: TextField(
+                                          controller: _addExerciseController,
+                                          textInputAction: TextInputAction.done,
+                                          decoration: InputDecoration(
+                                            hintText: 'Add Exercise',
+                                            filled: true,
+                                            fillColor: AppColors.surface,
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(50),
+                                              borderSide: BorderSide(
+                                                color: AppColors.navy,
+                                              ),
+                                            ),
+                                            enabledBorder: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(50),
+                                              borderSide: const BorderSide(
+                                                color: AppColors.surface,
+                                              ),
+                                            ),
+                                            focusedBorder: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(50),
+                                              borderSide: const BorderSide(
+                                                color: AppColors.surface,
+                                              ),
+                                            ),
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 20,
+                                                  vertical: 24,
+                                                ),
+                                            suffixIcon: hasHistory
+                                                ? Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          right: 8.0,
+                                                        ),
+                                                    child: IconButton(
+                                                      icon: const Icon(
+                                                        LucideIcons.folderClock,
+                                                        color: AppColors.navy,
+                                                      ),
+                                                      onPressed: () {
+                                                        _showHistoryBottomSheet(
+                                                          context,
+                                                          _addExerciseController
+                                                              .text
+                                                              .trim(),
+                                                          _pastExercises[currentText]!,
+                                                        );
+                                                      },
+                                                    ),
+                                                  )
+                                                : null,
+                                          ),
+                                          onSubmitted: (value) {
+                                            if (value.trim().isEmpty) return;
+                                            _showAddSetsDialog(value.trim());
+                                            _addExerciseController.clear();
                                           },
-                                        )
-                                      : null,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                onSubmitted: (value) {
-                                  if (value.trim().isNotEmpty) {
-                                    _updateStreak();
-                                    _showAddSetsBottomSheet(value.trim());
-                                    _addExerciseController.clear();
-                                  }
-                                },
-                              ),
-                            ],
-                          );
-                        },
+                              ],
+                            );
+                          },
+                        ),
                       ),
                     ),
                 ],

@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:brightbell/utils/date_utils.dart';
 import 'package:brightbell/utils/user_utils.dart';
 import 'package:brightbell/utils/streak_utils.dart';
 import 'package:brightbell/utils/workout_utils.dart';
@@ -14,21 +16,32 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
+  static const _enabledKey = 'notifications_enabled';
+  static const _promptedKey = 'has_prompted_notifications';
+  static const morningEnabledKey = 'morning_notifications_enabled';
+  static const eveningEnabledKey = 'evening_notifications_enabled';
+
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
   Future<void> init() async {
     tz.initializeTimeZones();
-    final timeZoneInfo = await FlutterTimezone.getLocalTimezone();
-    tz.setLocalLocation(tz.getLocation(timeZoneInfo.identifier));
+    try {
+      final timeZoneInfo = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timeZoneInfo.identifier));
+    } catch (e) {
+      // Unknown zone id on this device; reminders fall back to UTC.
+      debugPrint('Could not resolve local timezone: $e');
+    }
 
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
+    // Permission is requested when the user opts in, not on first launch.
     const DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings(
-          requestAlertPermission: true,
-          requestBadgePermission: true,
-          requestSoundPermission: true,
+          requestAlertPermission: false,
+          requestBadgePermission: false,
+          requestSoundPermission: false,
         );
     const InitializationSettings initializationSettings =
         InitializationSettings(
@@ -43,46 +56,71 @@ class NotificationService {
 
   Future<bool> areNotificationsEnabled() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('notifications_enabled') ?? false;
+    return prefs.getBool(_enabledKey) ?? false;
   }
 
-  Future<void> setNotificationsEnabled(bool enabled) async {
+  Future<bool> hasPrompted() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('notifications_enabled', enabled);
-    if (enabled) {
-      await requestPermissions();
-    }
-    await scheduleNotifications();
+    return prefs.getBool(_promptedKey) ?? false;
   }
 
-  Future<void> requestPermissions() async {
+  Future<void> markPrompted() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_promptedKey, true);
+  }
+
+  /// Turns reminders on or off. Returns whether they ended up enabled, which
+  /// is false if the user denied the OS permission.
+  Future<bool> setNotificationsEnabled(bool enabled) async {
+    if (enabled) {
+      enabled = await requestPermissions();
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_enabledKey, enabled);
+    await markPrompted();
+    await scheduleNotifications();
+    return enabled;
+  }
+
+  Future<bool> requestPermissions() async {
     if (Platform.isIOS) {
-      await flutterLocalNotificationsPlugin
+      final granted = await flutterLocalNotificationsPlugin
           .resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin
           >()
           ?.requestPermissions(alert: true, badge: true, sound: true);
+      return granted ?? false;
     } else if (Platform.isAndroid) {
-      final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
-          flutterLocalNotificationsPlugin
-              .resolvePlatformSpecificImplementation<
-                AndroidFlutterLocalNotificationsPlugin
-              >();
+      final granted = await flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.requestNotificationsPermission();
+      return granted ?? false;
+    }
+    return false;
+  }
 
-      await androidImplementation?.requestNotificationsPermission();
-      await androidImplementation?.requestExactAlarmsPermission();
+  Future<void> cancelAll() => flutterLocalNotificationsPlugin.cancelAll();
+
+  /// Re-plans the next 10 days of reminders. Call it whenever workouts, goal
+  /// days or reminder settings change so the messages stay accurate.
+  Future<void> scheduleNotifications() async {
+    try {
+      await _scheduleNotifications();
+    } catch (e) {
+      debugPrint('Error scheduling notifications: $e');
     }
   }
 
-  Future<void> scheduleNotifications() async {
-    await flutterLocalNotificationsPlugin.cancelAll();
+  Future<void> _scheduleNotifications() async {
+    await cancelAll();
 
-    bool enabled = await areNotificationsEnabled();
-    if (!enabled) return;
+    if (!await areNotificationsEnabled()) return;
 
     final prefs = await SharedPreferences.getInstance();
-    bool morningEnabled = prefs.getBool('morning_notifications_enabled') ?? true;
-    bool eveningEnabled = prefs.getBool('evening_notifications_enabled') ?? true;
+    final morningEnabled = prefs.getBool(morningEnabledKey) ?? true;
+    final eveningEnabled = prefs.getBool(eveningEnabledKey) ?? true;
 
     List<int> goalDays = await UserUtils.getGoalDays();
     if (goalDays.isEmpty) {
@@ -91,18 +129,20 @@ class NotificationService {
 
     final workouts = await WorkoutUtils.getAllWorkouts();
     final now = DateTime.now();
+    final loggedToday = workouts.any((w) => w.date == dateKey(now));
+    final currentStreak = StreakUtils.getCurrentStreak(
+      StreakUtils.calculateTimeline(workouts, goalDays),
+    );
+    final daysSinceLastWorkout = _getDaysSinceLastWorkout(workouts, now);
 
-    // Schedule for the next 10 days
-    int idOffset = 0;
-    int daysSinceLastWorkout = _getDaysSinceLastWorkout(workouts, now);
-
+    int id = 0;
     for (int i = 0; i <= 10; i++) {
       final targetDate = now.add(Duration(days: i));
 
       if (i == 10) {
-        // 10 days of no activity
+        // 10 days without opening the app
         await _scheduleNotification(
-          id: idOffset++,
+          id: id++,
           title: "Maybe we need some space.",
           body: "I guess I'll stop bothering you.",
           scheduledDate: _timeOnDate(targetDate, 9, 0),
@@ -110,88 +150,60 @@ class NotificationService {
         break;
       }
 
-      if (goalDays.contains(targetDate.weekday)) {
-        // Morning notification
-        if (morningEnabled) {
-          await _scheduleNotification(
-            id: idOffset++,
-            title: "Good Morning!",
-            body: i % 2 == 0
-                ? "It's a new day. Let's start it with logging a workout"
-                : "Let's log a new workout",
-            scheduledDate: _timeOnDate(targetDate, 9, 0),
-          );
+      if (!goalDays.contains(targetDate.weekday)) continue;
+      if (i == 0 && loggedToday) continue;
+
+      if (morningEnabled) {
+        await _scheduleNotification(
+          id: id++,
+          title: "Good Morning!",
+          body: i % 2 == 0
+              ? "It's a new day. Let's start it with logging a workout"
+              : "Let's log a new workout",
+          scheduledDate: _timeOnDate(targetDate, 9, 0),
+        );
+      }
+
+      if (eveningEnabled) {
+        // Only today's reminder can know about an active streak; by later
+        // days it will have been rescheduled if the user logged anything.
+        final String eveningBody;
+        if (i == 0 && currentStreak > 0) {
+          eveningBody =
+              "A quick workout extends your streak! Log by midnight to keep your $currentStreak day streak going";
+        } else if (daysSinceLastWorkout == null) {
+          eveningBody =
+              "You haven't logged your first workout yet. Today's a great day to start!";
+        } else {
+          final days = daysSinceLastWorkout + i;
+          eveningBody =
+              "You haven't logged a workout in $days ${days == 1 ? 'day' : 'days'}. Can we fix this?";
         }
-
-        // Evening notification
-        if (eveningEnabled) {
-          int simulatedDaysSince = daysSinceLastWorkout + i;
-          bool hasStreak = i == 0 && _isStreakActive(workouts, goalDays, now);
-
-          int simulatedStreak = hasStreak
-              ? _calculateCurrentStreak(workouts, goalDays) + 1
-              : 0;
-
-          String eveningBody;
-          if (simulatedStreak > 0) {
-            eveningBody =
-                "A quick workout extends your streak! Log by midnight to keep your $simulatedStreak day streak going";
-          } else {
-            eveningBody =
-                "You haven't logged a workout in $simulatedDaysSince days. Can we fix this?";
-          }
-          await _scheduleNotification(
-            id: idOffset++,
-            title: "Evening Reminder",
-            body: eveningBody,
-            scheduledDate: _timeOnDate(targetDate, 18, 0),
-          );
-        }
+        await _scheduleNotification(
+          id: id++,
+          title: "Evening Reminder",
+          body: eveningBody,
+          scheduledDate: _timeOnDate(targetDate, 18, 0),
+        );
       }
     }
   }
 
-  int _getDaysSinceLastWorkout(List<Workout> workouts, DateTime now) {
-    if (workouts.isEmpty) return 0;
-    final sorted = List.from(
-      workouts,
-    )..sort((a, b) => DateTime.parse(b.date).compareTo(DateTime.parse(a.date)));
-    final lastWorkout = sorted.first;
-    final lastDate = DateTime.parse(lastWorkout.date);
-    return now.difference(lastDate).inDays;
-  }
-
-  bool _isStreakActive(
-    List<Workout> workouts,
-    List<int> goalDays,
-    DateTime now,
-  ) {
-    if (workouts.isEmpty) return false;
-    final timeline = StreakUtils.calculateTimeline(workouts, goalDays);
-    if (timeline.isEmpty) return false;
-    final mostRecent = timeline.first;
-    if (mostRecent.streakBreak != null) return false;
-    // Check if broken between last workout and today
-    final lastDate = DateTime.parse(mostRecent.workout!.date);
-    int diff = now.difference(lastDate).inDays;
-    if (diff > 1) {
-      for (int i = 1; i < diff; i++) {
-        if (goalDays.contains(lastDate.add(Duration(days: i)).weekday))
-          return false;
-      }
-    }
-    return mostRecent.currentStreakCount > 0;
-  }
-
-  int _calculateCurrentStreak(List<Workout> workouts, List<int> goalDays) {
-    final timeline = StreakUtils.calculateTimeline(workouts, goalDays);
-    return StreakUtils.getCurrentStreak(timeline);
+  int? _getDaysSinceLastWorkout(List<Workout> workouts, DateTime now) {
+    final dates = workouts
+        .map((w) => DateTime.tryParse(w.date))
+        .whereType<DateTime>();
+    if (dates.isEmpty) return null;
+    final last = dates.reduce((a, b) => a.isAfter(b) ? a : b);
+    final today = DateTime.utc(now.year, now.month, now.day);
+    return today
+        .difference(DateTime.utc(last.year, last.month, last.day))
+        .inDays;
   }
 
   tz.TZDateTime _timeOnDate(DateTime date, int hour, int minute) {
-    final location = tz.local;
     return tz.TZDateTime(
-      location,
+      tz.local,
       date.year,
       date.month,
       date.day,
@@ -223,13 +235,14 @@ class NotificationService {
       iOS: DarwinNotificationDetails(),
     );
 
+    // Inexact is fine for reminders and avoids Android's exact-alarm permission.
     await flutterLocalNotificationsPlugin.zonedSchedule(
       id: id,
       title: title,
       body: body,
       scheduledDate: scheduledDate,
       notificationDetails: platformDetails,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     );
   }
 }

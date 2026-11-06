@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <rect width="1024" height="1024" fill="#F3EFE7"/>
+  <g transform="translate(490 555) rotate(-30)" stroke="#1C2A45" stroke-width="36" stroke-linejoin="round" fill="#F3EFE7">
+    <!-- handle -->
+    <rect x="-150" y="-36" width="300" height="72" fill="#1C2A45" stroke="none"/>
+    <!-- outer plates -->
+    <rect x="214" y="-145" width="96" height="290" rx="30"/>
+    <rect x="-310" y="-145" width="96" height="290" rx="30"/>
+    <!-- inner plates -->
+    <rect x="142" y="-200" width="96" height="400" rx="30"/>
+    <rect x="-238" y="-200" width="96" height="400" rx="30"/>
+  </g>
+  <!-- motion sparks -->
+  <g stroke="#E8582B" stroke-width="32" stroke-linecap="round">
+    <line x1="696" y1="199" x2="707" y2="138"/>
+    <line x1="748" y1="228" x2="794" y2="187"/>
+    <line x1="772" y1="284" x2="834" y2="279"/>
+  </g>
+</svg>

@@ -1,7 +1,11 @@
+import 'package:brightbell/theme/app_theme.dart';
 import 'package:brightbell/screens/settings/notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:brightbell/utils/auth_utils.dart';
+import 'package:brightbell/utils/notification_service.dart';
 import 'package:brightbell/screens/settings/goals.dart';
+import 'package:brightbell/screens/settings/about.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class Settings extends StatelessWidget {
   const Settings({super.key});
@@ -12,7 +16,13 @@ class Settings extends StatelessWidget {
     final String displayName = user?.displayName ?? 'User';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      backgroundColor: AppColors.cream,
+      appBar: AppBar(
+        title: const Text('Settings'),
+        backgroundColor: AppColors.cream,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: AppColors.navy),
+      ),
       body: ListView(
         children: [
           Padding(
@@ -22,35 +32,13 @@ class Settings extends StatelessWidget {
             ),
             child: Text(
               'Welcome, $displayName',
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: AppColors.orange,
+              ),
             ),
           ),
-          // const Divider(),
-          // const Padding(
-          //   padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-          //   child: Text(
-          //     'Account',
-          //     style: TextStyle(
-          //       fontSize: 14,
-          //       fontWeight: FontWeight.bold,
-          //       color: Colors.blue,
-          //     ),
-          //   ),
-          // ),
-          // ListTile(
-          //   leading: const Icon(Icons.palette_outlined),
-          //   title: const Text('Username'),
-          //   onTap: () {
-          //     // TODO: Implement theme selection
-          //   },
-          // ),
-          // ListTile(
-          //   leading: const Icon(Icons.palette_outlined),
-          //   title: const Text('Change your password'),
-          //   onTap: () {
-          //     // TODO: Implement theme selection
-          //   },
-          // ),
           const Divider(),
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -59,19 +47,12 @@ class Settings extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: Colors.blue,
+                color: AppColors.orange,
               ),
             ),
           ),
-          // ListTile(
-          //   leading: const Icon(Icons.palette_outlined),
-          //   title: const Text('Theme'),
-          //   onTap: () {
-          //     // TODO: Implement theme selection
-          //   },
-          // ),
           ListTile(
-            leading: const Icon(Icons.flag_outlined),
+            leading: const Icon(LucideIcons.flag),
             title: const Text('Goals'),
             onTap: () {
               Navigator.push(
@@ -81,35 +62,17 @@ class Settings extends StatelessWidget {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.notifications_outlined),
+            leading: const Icon(LucideIcons.bell),
             title: const Text('Notifications'),
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const NotificationsScreen()),
+                MaterialPageRoute(
+                  builder: (context) => const NotificationsScreen(),
+                ),
               );
-              // TODO: Implement notifications settings
             },
           ),
-          // const Divider(),
-          // const Padding(
-          //   padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-          //   child: Text(
-          //     'Help',
-          //     style: TextStyle(
-          //       fontSize: 14,
-          //       fontWeight: FontWeight.bold,
-          //       color: Colors.blue,
-          //     ),
-          //   ),
-          // ),
-          // ListTile(
-          //   leading: const Icon(Icons.feedback_outlined),
-          //   title: const Text('Send feedback'),
-          //   onTap: () {
-          //     // TODO: Implement send feedback
-          //   },
-          // ),
           const Divider(),
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -118,18 +81,17 @@ class Settings extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: Colors.blue,
+                color: AppColors.orange,
               ),
             ),
           ),
           ListTile(
-            leading: const Icon(Icons.info_outline),
+            leading: const Icon(LucideIcons.info),
             title: const Text('About'),
             onTap: () {
-              showAboutDialog(
-                context: context,
-                applicationName: 'Brightbell',
-                applicationVersion: '1.0.0',
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AboutScreen()),
               );
             },
           ),
@@ -138,18 +100,20 @@ class Settings extends StatelessWidget {
             padding: const EdgeInsets.all(16.0),
             child: ElevatedButton.icon(
               onPressed: () async {
+                // Reminders are per account, so stop them for this device.
+                await NotificationService().cancelAll();
                 await AuthUtils.signOut();
                 if (context.mounted) {
-                  Navigator.pop(
-                    context,
-                  ); // Pop Settings screen, auth listener will handle the rest
+                  // Back to the root, which the auth listener has switched to
+                  // the sign-in screen.
+                  Navigator.popUntil(context, (route) => route.isFirst);
                 }
               },
-              icon: const Icon(Icons.logout),
+              icon: const Icon(LucideIcons.logOut),
               label: const Text('Log Out'),
               style: ElevatedButton.styleFrom(
-                foregroundColor: Colors.red,
-                backgroundColor: Colors.red.shade50,
+                foregroundColor: AppColors.cream,
+                backgroundColor: AppColors.danger,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),

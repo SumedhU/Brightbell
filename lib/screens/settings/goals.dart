@@ -1,3 +1,4 @@
+import 'package:brightbell/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:brightbell/utils/user_utils.dart';
 import 'package:brightbell/utils/notification_service.dart';
@@ -22,6 +23,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
 
   Future<void> _loadGoals() async {
     final goalDays = await UserUtils.getGoalDays();
+    if (!mounted) return;
     setState(() {
       _selectedDays.addAll(goalDays);
       _isLoading = false;
@@ -32,9 +34,9 @@ class _GoalsScreenState extends State<GoalsScreen> {
     await UserUtils.saveGoalDays(_selectedDays);
     await NotificationService().scheduleNotifications();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Goals saved successfully')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Goals saved successfully')));
     }
   }
 
@@ -52,23 +54,20 @@ class _GoalsScreenState extends State<GoalsScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
+        backgroundColor: AppColors.cream,
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    final daysMap = {
-      1: 'M',
-      2: 'T',
-      3: 'W',
-      4: 'T',
-      5: 'F',
-      6: 'S',
-      7: 'S',
-    };
+    final daysMap = {1: 'M', 2: 'T', 3: 'W', 4: 'T', 5: 'F', 6: 'S', 7: 'S'};
 
     return Scaffold(
+      backgroundColor: AppColors.cream,
       appBar: AppBar(
         title: const Text('Goals'),
+        backgroundColor: AppColors.cream,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: AppColors.navy),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -77,12 +76,16 @@ class _GoalsScreenState extends State<GoalsScreen> {
           children: [
             const Text(
               'Select the days you plan to workout:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.orange,
+              ),
             ),
             const SizedBox(height: 8),
             const Text(
               'Your streak will only reset if you miss one of these selected days.',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+              style: TextStyle(fontSize: 14, color: AppColors.navy),
             ),
             const SizedBox(height: 32),
             Row(
@@ -99,13 +102,13 @@ class _GoalsScreenState extends State<GoalsScreen> {
                     height: 40,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: isSelected ? Colors.blue : Colors.grey.shade300,
+                      color: isSelected ? AppColors.navy : AppColors.border,
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       dayLabel,
                       style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.black87,
+                        color: isSelected ? AppColors.cream : AppColors.navy,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -117,18 +120,20 @@ class _GoalsScreenState extends State<GoalsScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _saveGoals,
+                // At least one day is needed for streaks and reminders to work.
+                onPressed: _selectedDays.isEmpty ? null : _saveGoals,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppColors.navy,
+                  foregroundColor: AppColors.cream,
                 ),
                 child: const Text(
                   'Save Goals',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
-            )
+            ),
+            const SizedBox(height: 10),
           ],
         ),
       ),

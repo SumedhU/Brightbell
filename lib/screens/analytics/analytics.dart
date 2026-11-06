@@ -1,3 +1,4 @@
+import 'package:brightbell/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:brightbell/utils/workout_utils.dart';
 import 'package:brightbell/screens/analytics/consistency_heatmap.dart';
@@ -46,12 +47,15 @@ class _AnalyticsState extends State<Analytics> {
       appBar: AppBar(
         title: const Text(
           'Analytics',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: AppColors.orange,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         // backgroundColor: Colors.white,
-        surfaceTintColor: Colors.red,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        iconTheme: const IconThemeData(color: AppColors.navy),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -67,17 +71,18 @@ class _AnalyticsState extends State<Analytics> {
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     letterSpacing: -0.5,
+                    color: AppColors.orange,
                   ),
                 ),
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.surface,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -90,7 +95,9 @@ class _AnalyticsState extends State<Analytics> {
                         return const SizedBox(
                           height: 100,
                           child: Center(
-                            child: CircularProgressIndicator(color: Colors.amber),
+                            child: CircularProgressIndicator(
+                              color: AppColors.navy,
+                            ),
                           ),
                         );
                       }
@@ -98,9 +105,7 @@ class _AnalyticsState extends State<Analytics> {
                       if (snapshot.hasError) {
                         return const SizedBox(
                           height: 100,
-                          child: Center(
-                            child: Text('Failed to load data'),
-                          ),
+                          child: Center(child: Text('Failed to load data')),
                         );
                       }
 
@@ -116,6 +121,7 @@ class _AnalyticsState extends State<Analytics> {
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     letterSpacing: -0.5,
+                    color: AppColors.orange,
                   ),
                 ),
                 const SizedBox(height: 12),

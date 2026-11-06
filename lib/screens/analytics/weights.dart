@@ -1,3 +1,4 @@
+import 'package:brightbell/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:brightbell/utils/weight_utils.dart';
@@ -42,7 +43,8 @@ class _WeightsScreenState extends State<WeightsScreen> {
 
     setState(() => _isLoading = true);
     final date = DateTime.now();
-    final dateStr = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+    final dateStr =
+        "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
     final weight = Weight(date: dateStr, weightLbs: weightLbs);
     await WeightUtils.saveWeight(weight);
     _weightController.clear();
@@ -70,6 +72,7 @@ class _WeightsScreenState extends State<WeightsScreen> {
                 'Weight History',
                 style: TextStyle(
                   fontSize: 18,
+                  color: AppColors.orange,
                   fontWeight: FontWeight.bold,
                   letterSpacing: -0.5,
                 ),
@@ -82,7 +85,7 @@ class _WeightsScreenState extends State<WeightsScreen> {
 
   Widget _buildInputSection() {
     return Card(
-      color: Colors.white,
+      color: AppColors.surface,
       elevation: 2,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -176,7 +179,7 @@ class _WeightsScreenState extends State<WeightsScreen> {
     }
 
     return Card(
-      color: Colors.white,
+      color: AppColors.surface,
       elevation: 2,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -196,7 +199,7 @@ class _WeightsScreenState extends State<WeightsScreen> {
                 dotData: const FlDotData(show: true),
                 belowBarData: BarAreaData(
                   show: true,
-                  color: Theme.of(context).primaryColor.withOpacity(0.2),
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
                 ),
               ),
             ],
@@ -232,7 +235,7 @@ class _WeightsScreenState extends State<WeightsScreen> {
             gridData: const FlGridData(show: true),
             borderData: FlBorderData(
               show: true,
-              border: Border.all(color: Colors.grey.withOpacity(0.3)),
+              border: Border.all(color: AppColors.border),
             ),
           ),
         ),

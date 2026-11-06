@@ -65,8 +65,23 @@ class Set {
     );
   }
 
+  Set copy() => Set(
+    id: id,
+    numberOfReps: numberOfReps,
+    weight: weight,
+    isWarmUp: isWarmUp,
+    isDropSet: isDropSet,
+    isFailure: isFailure,
+  );
+
   String toText() {
-    String typeStr = isWarmUp ? '(W)' : isDropSet ? '(D)' : isFailure ? '(F)' : '';
+    String typeStr = isWarmUp
+        ? '(W)'
+        : isDropSet
+        ? '(D)'
+        : isFailure
+        ? '(F)'
+        : '';
     // Format weight without trailing .0 if it's an integer
     String weightStr = weight == weight.roundToDouble()
         ? weight.toInt().toString()

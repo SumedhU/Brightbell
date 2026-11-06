@@ -1,13 +1,9 @@
 class Weight {
   final String date;
   final double weightLbs;
-  final dynamic timestamp; 
+  final dynamic timestamp;
 
-  Weight({
-    required this.date,
-    required this.weightLbs,
-    this.timestamp,
-  });
+  Weight({required this.date, required this.weightLbs, this.timestamp});
 
   factory Weight.fromMap(Map<String, dynamic> map) {
     return Weight(
@@ -18,10 +14,7 @@ class Weight {
   }
 
   Map<String, dynamic> toMap() {
-    final map = <String, dynamic>{
-      'date': date,
-      'weightLbs': weightLbs,
-    };
+    final map = <String, dynamic>{'date': date, 'weightLbs': weightLbs};
     if (timestamp != null) {
       map['timestamp'] = timestamp;
     }

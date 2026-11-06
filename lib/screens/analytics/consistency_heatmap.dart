@@ -1,3 +1,4 @@
+import 'package:brightbell/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_heatmap/fl_heatmap.dart';
 
@@ -12,20 +13,20 @@ class ConsistencyHeatmap extends StatefulWidget {
 
 class _ConsistencyHeatmapState extends State<ConsistencyHeatmap> {
   late DateTime _endDate;
-  
+
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
     _endDate = DateTime(now.year, now.month, now.day);
   }
-  
+
   void _goBack() {
     setState(() {
       _endDate = _endDate.subtract(const Duration(days: 30));
     });
   }
-  
+
   void _goForward() {
     setState(() {
       final next = _endDate.add(const Duration(days: 30));
@@ -41,24 +42,37 @@ class _ConsistencyHeatmapState extends State<ConsistencyHeatmap> {
 
   @override
   Widget build(BuildContext context) {
-    final startDate = _endDate.subtract(const Duration(days: 29)); // 30 days total
-    
+    final startDate = _endDate.subtract(
+      const Duration(days: 29),
+    ); // 30 days total
+
     final Set<String> loggedDates = widget.workoutDates.map((d) {
       return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
     }).toSet();
-    
+
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final canGoForward = _endDate.isBefore(today);
-    
+
     final monthFormat = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
-    final dateRangeText = '${monthFormat[startDate.month - 1]} ${startDate.day} - ${monthFormat[_endDate.month - 1]} ${_endDate.day}';
+    final dateRangeText =
+        '${monthFormat[startDate.month - 1]} ${startDate.day} - ${monthFormat[_endDate.month - 1]} ${_endDate.day}';
 
     int workoutsInPeriod = 0;
-    
+
     // Create a 10x3 grid for exactly 30 days
     final columns = List.generate(10, (i) => 'C$i');
     final rows = List.generate(3, (i) => 'R$i');
@@ -67,18 +81,21 @@ class _ConsistencyHeatmapState extends State<ConsistencyHeatmap> {
     for (int i = 0; i < 30; i++) {
       final int col = i % 10;
       final int row = i ~/ 10;
-      
+
       final cellDate = startDate.add(Duration(days: i));
-      final dateStr = '${cellDate.year}-${cellDate.month.toString().padLeft(2, '0')}-${cellDate.day.toString().padLeft(2, '0')}';
+      final dateStr =
+          '${cellDate.year}-${cellDate.month.toString().padLeft(2, '0')}-${cellDate.day.toString().padLeft(2, '0')}';
       final bool hasWorkout = loggedDates.contains(dateStr);
-      
+
       if (hasWorkout) workoutsInPeriod++;
-      
-      items.add(HeatmapItem(
-        value: hasWorkout ? 1.0 : 0.0,
-        xAxisLabel: columns[col],
-        yAxisLabel: rows[row],
-      ));
+
+      items.add(
+        HeatmapItem(
+          value: hasWorkout ? 1.0 : 0.0,
+          xAxisLabel: columns[col],
+          yAxisLabel: rows[row],
+        ),
+      );
     }
 
     final heatmapData = HeatmapData(
@@ -86,11 +103,11 @@ class _ConsistencyHeatmapState extends State<ConsistencyHeatmap> {
       columns: columns,
       radius: 4.0,
       colorPalette: [
-        Colors.grey.shade200,
-        Colors.green.shade200,
-        Colors.green.shade300,
-        Colors.green.shade400,
-        Colors.green,
+        AppColors.border,
+        AppColors.navy.withValues(alpha: 0.35),
+        AppColors.navy.withValues(alpha: 0.55),
+        AppColors.navy.withValues(alpha: 0.75),
+        AppColors.navy,
       ],
       items: items,
     );
@@ -113,12 +130,15 @@ class _ConsistencyHeatmapState extends State<ConsistencyHeatmap> {
                 children: [
                   Text(
                     dateRangeText,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '$workoutsInPeriod workouts',
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    style: const TextStyle(fontSize: 11, color: AppColors.navy),
                   ),
                 ],
               ),

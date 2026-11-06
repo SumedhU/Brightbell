@@ -62,8 +62,10 @@ class DefaultFirebaseOptions {
     messagingSenderId: '921219255144',
     projectId: 'brightbell-app',
     storageBucket: 'brightbell-app.firebasestorage.app',
-    androidClientId: '921219255144-cvrk5pau806m0muau1lqnaute4vj34g8.apps.googleusercontent.com',
-    iosClientId: '921219255144-c86tuoor9392dejvkv7jqeuc9mqv5ror.apps.googleusercontent.com',
+    androidClientId:
+        '921219255144-cvrk5pau806m0muau1lqnaute4vj34g8.apps.googleusercontent.com',
+    iosClientId:
+        '921219255144-c86tuoor9392dejvkv7jqeuc9mqv5ror.apps.googleusercontent.com',
     iosBundleId: 'com.example.brightbell',
   );
   // static const FirebaseOptions macos = FirebaseOptions(
